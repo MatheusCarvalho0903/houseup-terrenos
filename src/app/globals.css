@@ -1,26 +1,67 @@
-@import "tailwindcss";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --font-inter: "Inter", system-ui, sans-serif;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+* {
+  -webkit-tap-highlight-color: transparent;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  scroll-behavior: smooth;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background-color: #f4f6f9;
+  color: #1a2e4a;
+  font-family: var(--font-inter);
+}
+
+/* Slim, unobtrusive scrollbar for the premium feel */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background-color: #d6deea;
+  border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background-color: #b9c6d8;
+}
+
+@layer components {
+  .input-base {
+    @apply w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm text-ink placeholder:text-gray-400 transition focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20;
+  }
+
+  .label-base {
+    @apply mb-1.5 block text-sm font-medium text-ink;
+  }
+
+  .card-base {
+    @apply rounded-2xl bg-white shadow-card transition-shadow duration-200 hover:shadow-card-hover;
+  }
+
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl bg-brand px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition duration-200 hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-60;
+  }
+
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-ink transition duration-200 hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-60;
+  }
+
+  .btn-danger {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl bg-status-vendido px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition duration-200 hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60;
+  }
+
+  .btn-success {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl bg-status-disponivel px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition duration-200 hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-60;
+  }
 }
