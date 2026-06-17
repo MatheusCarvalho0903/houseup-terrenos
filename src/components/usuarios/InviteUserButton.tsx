@@ -11,7 +11,7 @@ export function InviteUserButton() {
     <>
       <button onClick={() => setOpen(true)} className="btn-primary">
         <UserPlus className="h-4 w-4" />
-        Convidar usuário
+        Novo usuário
       </button>
       <InviteUserModal open={open} onClose={() => setOpen(false)} />
     </>
