@@ -84,3 +84,53 @@ export async function POST(request: NextRequest) {
 
   return NextResponse.json({ success: true }, { status: 201 });
 }
+
+export async function DELETE(request: NextRequest) {
+  const supabase = await createServerSupabaseClient();
+  const { data: userData } = await supabase.auth.getUser();
+  if (!userData.user) {
+    return NextResponse.json(
+      { error: "Sessão expirada. Faça login novamente." },
+      { status: 401 }
+    );
+  }
+
+  const { data: callerProfile } = await supabase
+    .from("profiles")
+    .select("role, active")
+    .eq("id", userData.user.id)
+    .single();
+
+  if (!callerProfile?.active || callerProfile.role !== "admin") {
+    return NextResponse.json(
+      { error: "Apenas administradores podem gerenciar usuários." },
+      { status: 403 }
+    );
+  }
+
+  const body = await request.json().catch(() => null);
+  const userId = body?.userId;
+
+  if (!userId || typeof userId !== "string") {
+    return NextResponse.json({ error: "ID do usuário inválido." }, { status: 400 });
+  }
+
+  if (userId === userData.user.id) {
+    return NextResponse.json(
+      { error: "Você não pode excluir sua própria conta." },
+      { status: 400 }
+    );
+  }
+
+  const admin = createAdminSupabaseClient();
+
+  const { error: authError } = await admin.auth.admin.deleteUser(userId);
+  if (authError) {
+    return NextResponse.json({ error: authError.message }, { status: 400 });
+  }
+
+  // Remove do profiles (no-op se cascade já deletou)
+  await admin.from("profiles").delete().eq("id", userId);
+
+  return NextResponse.json({ success: true });
+}
