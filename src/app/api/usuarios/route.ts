@@ -5,27 +5,28 @@ import type { UserRole } from "@/lib/types";
 
 const VALID_ROLES: UserRole[] = ["admin", "manager", "broker"];
 
-export async function POST(request: NextRequest) {
+async function assertAdmin() {
   const supabase = await createServerSupabaseClient();
   const { data: userData } = await supabase.auth.getUser();
-  if (!userData.user) {
-    return NextResponse.json(
-      { error: "Sessão expirada. Faça login novamente." },
-      { status: 401 }
-    );
-  }
+  if (!userData.user) return { error: "Sessão expirada. Faça login novamente.", callerId: null };
 
-  const { data: callerProfile } = await supabase
+  const { data: profile } = await supabase
     .from("profiles")
     .select("role, active")
     .eq("id", userData.user.id)
     .single();
 
-  if (!callerProfile?.active || callerProfile.role !== "admin") {
-    return NextResponse.json(
-      { error: "Apenas administradores podem gerenciar usuários." },
-      { status: 403 }
-    );
+  if (!profile?.active || profile.role !== "admin") {
+    return { error: "Apenas administradores podem gerenciar usuários.", callerId: null };
+  }
+
+  return { error: null, callerId: userData.user.id };
+}
+
+export async function POST(request: NextRequest) {
+  const { error: authErr, callerId } = await assertAdmin();
+  if (authErr) {
+    return NextResponse.json({ error: authErr }, { status: callerId === null ? 401 : 403 });
   }
 
   const body = await request.json().catch(() => null);
@@ -69,13 +70,17 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: authError.message }, { status: 400 });
   }
 
-  const { error: profileError } = await admin.from("profiles").insert({
-    id: authData.user.id,
-    full_name: fullName.trim(),
-    email: email.trim(),
-    role,
-    active: true,
-  });
+  // UPSERT para tolerar registros órfãos de exclusões anteriores
+  const { error: profileError } = await admin.from("profiles").upsert(
+    {
+      id: authData.user.id,
+      full_name: fullName.trim(),
+      email: email.trim(),
+      role,
+      active: true,
+    },
+    { onConflict: "id" }
+  );
 
   if (profileError) {
     await admin.auth.admin.deleteUser(authData.user.id);
@@ -86,26 +91,9 @@ export async function POST(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
-  const supabase = await createServerSupabaseClient();
-  const { data: userData } = await supabase.auth.getUser();
-  if (!userData.user) {
-    return NextResponse.json(
-      { error: "Sessão expirada. Faça login novamente." },
-      { status: 401 }
-    );
-  }
-
-  const { data: callerProfile } = await supabase
-    .from("profiles")
-    .select("role, active")
-    .eq("id", userData.user.id)
-    .single();
-
-  if (!callerProfile?.active || callerProfile.role !== "admin") {
-    return NextResponse.json(
-      { error: "Apenas administradores podem gerenciar usuários." },
-      { status: 403 }
-    );
+  const { error: authErr, callerId } = await assertAdmin();
+  if (authErr) {
+    return NextResponse.json({ error: authErr }, { status: callerId === null ? 401 : 403 });
   }
 
   const body = await request.json().catch(() => null);
@@ -115,7 +103,7 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ error: "ID do usuário inválido." }, { status: 400 });
   }
 
-  if (userId === userData.user.id) {
+  if (userId === callerId) {
     return NextResponse.json(
       { error: "Você não pode excluir sua própria conta." },
       { status: 400 }
@@ -124,13 +112,25 @@ export async function DELETE(request: NextRequest) {
 
   const admin = createAdminSupabaseClient();
 
+  // Deletar profiles primeiro; continua mesmo se falhar para não deixar
+  // o auth user órfão sem perfil
+  let profileDeleteError: string | null = null;
+  try {
+    const { error } = await admin.from("profiles").delete().eq("id", userId);
+    if (error) profileDeleteError = error.message;
+  } catch {
+    profileDeleteError = "Falha ao remover perfil.";
+  }
+
   const { error: authError } = await admin.auth.admin.deleteUser(userId);
   if (authError) {
     return NextResponse.json({ error: authError.message }, { status: 400 });
   }
 
-  // Remove do profiles (no-op se cascade já deletou)
-  await admin.from("profiles").delete().eq("id", userId);
+  if (profileDeleteError) {
+    // Auth removido com sucesso; profile falhou mas não bloqueia o fluxo
+    console.error("Profile delete failed after auth delete:", profileDeleteError);
+  }
 
   return NextResponse.json({ success: true });
 }
