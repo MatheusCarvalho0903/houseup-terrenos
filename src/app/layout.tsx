@@ -12,8 +12,18 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: "HouseUp | Banco de Terrenos",
   description: "Sistema interno de gestão do banco de terrenos da HouseUp Construtora.",
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "HouseUp",
+  },
   icons: {
     icon: "/favicon.ico",
+    apple: "/icon-192.png",
+  },
+  other: {
+    "mobile-web-app-capable": "yes",
   },
 };
 
@@ -24,6 +34,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="pt-BR" className={`${inter.variable} h-full antialiased`}>
+      <head>
+        <meta name="theme-color" content="#1A2E4A" />
+      </head>
       <body className="min-h-full flex flex-col bg-surface-muted">
         {children}
         <Toaster
